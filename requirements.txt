@@ -1,0 +1,6 @@
+bottle
+bottle-websocket
+opuslib
+protobuf
+pyaudio
+-e git+git@github.com:azlux/pymumble.git#egg=pymumble
