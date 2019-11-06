@@ -1,3 +1,38 @@
-meter {
-  width: 400px;
+body {
+  background: black;
+  color: white;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+h1 {
+  font-size: 42px;
+}
+
+.channelStats {
+  margin-bottom: .5em;
+  width: fit-content;
+}
+
+.channelStatsLabel {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: .2em;
+}
+.channelStatsName {
+  margin: 0 2em 0 0;
+}
+
+.channelStats, .channelStatsName, .channelStatsUsers {
+  font-size: 36px;
+}
+
+.channelStatsMeter {
+  width: 20em;
+}
+
+.template svg,
+.channelStatsMeter svg {
+  outline: 1px solid yellow;
+  fill: white;
 }

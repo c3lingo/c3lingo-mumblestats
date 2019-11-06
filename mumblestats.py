@@ -64,15 +64,15 @@ class MumbleChannelStats:
 
     def update_stats(self):
         now = time.monotonic()
-        if now - self.last > 0.4:
-            self.rms = -90.0
-        else:
-            self.rms = self.dBFS(audioop.rms(self.buffer[-self.rmsbytes:], self.bytespersample))
         if now > self.lastpeak + self.peakinterval:
             self.lastpeak = now
             self.peak = -99
-        peak = self.dBFS(audioop.max(self.buffer[-self.rmsbytes:], self.bytespersample))
-        self.peak = max(peak, self.peak)
+        if now - self.last > 0.1:
+            self.peak = self.rms = -90.0
+        else:
+            self.rms = self.dBFS(audioop.rms(self.buffer[-self.rmsbytes:], self.bytespersample))
+            peak = self.dBFS(audioop.max(self.buffer, self.bytespersample))
+            self.peak = max(peak, self.peak)
         self.users = len(self.channel.get_users())
 
     def is_alive(self):
@@ -87,8 +87,9 @@ class MumbleStats():
         self.server = server
         self.stats = {}
         self.running = True
-        self.root = MumbleChannelStats(server, 'root')
-        self.channels = [c['name'] for c in list(self.root.get_channels())[1:]]
+        root = MumbleChannelStats(server, 'root')
+        self.channels = [c['name'] for c in list(root.get_channels())[1:]]
+        self.mumble_close(root)
 
     def collect_stats(self):
         for channel in self.channels:
@@ -102,9 +103,7 @@ class MumbleStats():
                 self.stats[channel].update_stats()
             time.sleep(.05)
         for channel in self.channels:
-            if self.stats[channel].is_alive():
-                self.stats[channel].mumble.connected = PYMUMBLE_CONN_STATE_NOT_CONNECTED
-                self.stats[channel].mumble.control_socket.close()
+            self.mumble_close(self.stats[channel])
 
     def thread(self):
         self.thread = threading.Thread(target=self.collect_stats, daemon=True)
@@ -114,10 +113,17 @@ class MumbleStats():
         self.running = False
         self.thread.join()
 
+    def mumble_close(self, mumble):
+        if mumble.is_alive():
+            mumble.mumble.connected = PYMUMBLE_CONN_STATE_NOT_CONNECTED
+            mumble.mumble.control_socket.close()
+
 
 @route('/')
 def get_index():
-    return template('index')
+    params = {}
+    params['server'] = server
+    return template('index', params)
 
 @route('/static/<filename>')
 def server_static(filename):
@@ -135,12 +141,6 @@ def get_stats():
         r[mumble_channel_stats.channel['name']] = s
     return r
 
-
-@route('/shutdown')
-def get_shutdown():
-    global mumble_stats
-    mumble_stats.stop()
-    return {'r': 'ok'}
 
 def main():
     global mumble_stats
