@@ -1,6 +1,8 @@
 document.addEventListener("DOMContentLoaded", function(event) {
-  let elem = document.querySelector('#xhrstats')
-  let first = true;
+  let statsElem = document.getElementById('mumblestats')
+  let channels = [];
+  let connected = false;
+  let notconnectedElem = document.getElementById('notconnected')
 
   let statsDisplayMeterWidthForDb = function(value) {
     // scale: +3dBFS == 82 units width of bar, 3dB = 2
@@ -74,44 +76,81 @@ document.addEventListener("DOMContentLoaded", function(event) {
 
     channelStats.innerHTML = html;
 
-    elem.appendChild(channelStats);
+    statsElem.appendChild(channelStats);
   }
 
-  let updateStats = function() {
+  let arrayEquals = function(array1, array2) {
+    return array1.length === array2.length && array1.sort().every(function(value, index) { return value === array2.sort()[index]});
+  }
+
+  let updateConnected = function(c) {
+    connected = c;
+    notconnectedElem.style.display = c ? 'none' : 'block';
+  }
+
+  let updateStats = function(json) {
+    let newChannels = []
+    for (const [name, values] of Object.entries(json)) {
+      newChannels.push(name);
+    }
+    if (!arrayEquals(channels, newChannels)) {
+      statsElem.innerHTML = '';
+      for (const [name, values] of Object.entries(json)) {
+        createStatsDisplay(name);
+      }
+      channels = newChannels;
+      return;
+    }
+    for (const [name, values] of Object.entries(json)) {
+      let users = document.getElementById('channelStatsUsers-' + name);
+      users.innerHTML = values.users;
+      let rms = document.getElementById('channelStatsMeter-' + name);
+      let value = statsDisplayMeterWidthForDb(values.rms);
+      if (value < 2)
+        value = 2;
+      rms.setAttribute('width', value);
+      let peak = document.getElementById('channelStatsPeak-' + name);
+      value = statsDisplayMeterWidthForDb(values.peak);
+      if (value < 2)
+        value = -999;
+      peak.setAttribute('x', value);
+    }
+  }
+
+  let updateStatsXhr = function() {
     let xhr = new XMLHttpRequest();
     xhr.open('GET', '/stats');
     xhr.send()
     xhr.onload = function() {
-      if (xhr.status != 200)
+      if (xhr.status != 200) {
+        updateConnected(false);
         return;
+      }
+      updateConnected(true);
       let json = JSON.parse(xhr.response)
-      let r = ''
-      if (first) {
-        first = false;
-        for (const [name, values] of Object.entries(json)) {
-          createStatsDisplay(name);
-        }
-        return;
-      }
-      for (const [name, values] of Object.entries(json)) {
-        let users = document.getElementById('channelStatsUsers-' + name);
-        users.innerHTML = values.users;
-        let rms = document.getElementById('channelStatsMeter-' + name);
-        let value = statsDisplayMeterWidthForDb(values.rms);
-        if (value < 2)
-          value = 2;
-        rms.setAttribute('width', value);
-        let peak = document.getElementById('channelStatsPeak-' + name);
-        value = statsDisplayMeterWidthForDb(values.peak);
-        if (value < 2)
-          value = -999;
-        peak.setAttribute('x', value);
-      }
-      //elem.innerHTML = json['Test'].users;
+      updateStats(json);
+    }
+    xhr.onerror = function() {
+      updateConnected(false);
     }
   }
 
-  // createStatsDisplay('Test');
+  let updateStatsWs = function() {
+    ws = new WebSocket((location.protocol == 'https' ? 'wss' : 'ws')
+      + '://' + location.host + '/wsstats');
+    ws.onopen = function(e) {
+      updateConnected(true);
+    }
+    ws.onmessage = function(e) {
+      let json = JSON.parse(e.data)
+      updateStats(json);
+    }
+    ws.onclose = function(e) {
+      updateConnected(false);
+      setTimeout(updateStatsWs, 1000);
+    }
+  }
 
-  setInterval(updateStats, 100);
+  //setInterval(updateStats, 100);
+  updateStatsWs();
 });

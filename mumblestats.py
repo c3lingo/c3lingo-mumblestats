@@ -1,25 +1,29 @@
 #!/usr/bin/python3
 
 import audioop
+import json
 import math
 import sys
 import time
 import threading
 import wave
 
-from bottle import route, run, static_file, template
-import pymumble_py3
+from bottle import get, route, run, static_file, template
+from bottle.ext.websocket import GeventWebSocketServer
+from bottle.ext.websocket import websocket
+from pymumble_py3 import Mumble
 from pymumble_py3.callbacks import PYMUMBLE_CLBK_SOUNDRECEIVED
 from pymumble_py3.constants import PYMUMBLE_CONN_STATE_NOT_CONNECTED
 
 server = "c3lingo.zs64.net"
+
 
 class MumbleChannelStats:
     def __init__(self, server, channel, nick='meter@{channel}',
             peakinterval=.3, buffertime=1., debug=False):
         self.channel = channel
         self.nick = nick.format(channel=channel)
-        self.mumble = pymumble_py3.Mumble(server, self.nick, password='somepassword', debug=debug)
+        self.mumble = Mumble(server, self.nick, password='somepassword', debug=debug)
         self.mumble.set_application_string('Audio Meter for Channel {}'.format(channel))
         self.mumble.callbacks.set_callback(PYMUMBLE_CLBK_SOUNDRECEIVED, self.sound_received_handler)
         self.mumble.set_receive_sound(1)
@@ -86,12 +90,24 @@ class MumbleStats():
     def __init__(self, server):
         self.server = server
         self.stats = {}
+        self.wsstats_clients = []
         self.running = True
         root = MumbleChannelStats(server, 'root')
         self.channels = [c['name'] for c in list(root.get_channels())[1:]]
         self.mumble_close(root)
 
+    def get_stats(self):
+        r = {}
+        for mumble_channel_stats in mumble_stats.stats.values():
+            s = {}
+            s['rms'] = mumble_channel_stats.rms
+            s['peak'] = mumble_channel_stats.peak
+            s['users'] = mumble_channel_stats.users
+            r[mumble_channel_stats.channel['name']] = s
+        return r
+
     def collect_stats(self):
+        global wsstats_clients
         for channel in self.channels:
             print('Connecting to {}...'.format(channel))
             self.stats[channel] = MumbleChannelStats(server, channel)
@@ -101,6 +117,8 @@ class MumbleStats():
                     print('{} is not alive anymore'.format(channel))
                     return
                 self.stats[channel].update_stats()
+            for ws in self.wsstats_clients:
+                ws.send(json.dumps(self.get_stats()))
             time.sleep(.05)
         for channel in self.channels:
             self.mumble_close(self.stats[channel])
@@ -132,22 +150,25 @@ def server_static(filename):
 @route('/stats')
 def get_stats():
     global mumble_stats
-    r = {}
-    for mumble_channel_stats in mumble_stats.stats.values():
-        s = {}
-        s['rms'] = mumble_channel_stats.rms
-        s['peak'] = mumble_channel_stats.peak
-        s['users'] = mumble_channel_stats.users
-        r[mumble_channel_stats.channel['name']] = s
-    return r
+    return mumble_stats.get_stats()
 
+
+@get('/wsstats', apply=[websocket])
+def ws_stats(ws):
+    global mumble_stats
+    mumble_stats.wsstats_clients.append(ws)
+    ws.send(json.dumps(mumble_stats.get_stats()))
+    while True:
+        if ws.receive() is None:
+            break
+    mumble_stats.wsstats_clients.remove(ws)
 
 def main():
     global mumble_stats
     mumble_stats = MumbleStats(server)
     mumble_stats.thread()
     try:
-        run(host='localhost', port=8080, debug=True)
+        run(host='localhost', port=8080, server=GeventWebSocketServer, debug=True)
     except KeyboardInterrupt:
         mumble_stats.stop()
         print('stopping...')

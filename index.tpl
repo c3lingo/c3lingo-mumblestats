@@ -7,7 +7,13 @@
 <body>
   <h1>{{server}} Stats</h1>
 
-<div id='xhrstats'>
+<div id='mumblestats'>
+</div>
+
+<div id="notconnected">
+  <div>
+    No connection to server.
+  </div>
 </div>
 
 </body>
