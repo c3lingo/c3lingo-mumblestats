@@ -3,4 +3,7 @@ bottle-websocket
 opuslib
 protobuf
 pyaudio
+# optional for transitive bottle-websocket -> gevent-websocket
+wsaccel
+ujson
 -e git+git@github.com:azlux/pymumble.git#egg=pymumble
