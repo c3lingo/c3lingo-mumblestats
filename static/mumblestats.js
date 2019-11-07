@@ -59,6 +59,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
     html += '</defs>';
 
     html += '<rect x="0" y="0" width="100" height="10" fill="url(#anodized_metal)"/>';
+    html += '<rect x="6" y="6" width="88" height="3" fill="#000"/>';
     html += '<path d="M 6 9 L 6 6 L 94 6" fill="none" stroke="#000" stroke-width=".2"/>';
     html += '<path d="M 6 9 L 94 9 L 94 6" fill="none" stroke="#444" stroke-width=".2"/>';
     for (let i = 3; i >= -3; i -= 3) {

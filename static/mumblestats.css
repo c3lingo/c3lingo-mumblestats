@@ -51,8 +51,3 @@ h1 {
   color: white;
   transform: translate(-50%,-50%);
 }
-
-.channelStatsMeter svg {
-  outline: 1px solid yellow;
-  fill: white;
-}
