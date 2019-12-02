@@ -8,9 +8,16 @@ h1 {
   font-size: 21px;
 }
 
+#mumblestats {
+  display: flex;
+  flex-wrap: wrap;
+}
+
 .channelStats {
   margin-bottom: .5em;
+  margin-right: 1em;
   width: fit-content;
+  flex: 0 0 30%;
 }
 
 .channelStatsLabel {
@@ -18,6 +25,7 @@ h1 {
   align-items: baseline;
   justify-content: space-between;
   margin-bottom: .2em;
+  width: 20em;
 }
 .channelStatsName {
   margin: 0 2em 0 0;
