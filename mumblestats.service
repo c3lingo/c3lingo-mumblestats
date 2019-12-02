@@ -1,0 +1,13 @@
+[Unit]
+Description=Mumble Stats Web Server
+After=mumble-server.service
+
+[Service]
+User=mumble-util
+Restart=always
+Type=simple
+WorkingDirectory=/home/mumble-util/c3lingo-mumblestats
+ExecStart=/home/mumble-util/c3lingo-mumblestats/.venv/bin/python mumblestats.py
+
+[Install]
+WantedBy=multi-user.target
