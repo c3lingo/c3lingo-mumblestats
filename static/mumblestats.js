@@ -137,8 +137,9 @@ document.addEventListener("DOMContentLoaded", function(event) {
   }
 
   let updateStatsWs = function() {
-    ws = new WebSocket((location.protocol == 'https' ? 'wss' : 'ws')
-      + '://' + location.host + '/wsstats');
+    let url = (location.protocol == 'https:' ? 'wss' : 'ws')
+      + '://' + location.host + location.pathname + 'wsstats'
+    ws = new WebSocket(url);
     ws.onopen = function(e) {
       updateConnected(true);
     }
