@@ -15,7 +15,7 @@ from pymumble_py3 import Mumble
 from pymumble_py3.callbacks import PYMUMBLE_CLBK_SOUNDRECEIVED
 from pymumble_py3.constants import PYMUMBLE_CONN_STATE_NOT_CONNECTED
 
-server = "c3lingo.zs64.net"
+server = "localhost"
 
 
 class MumbleChannelStats:
@@ -137,23 +137,23 @@ class MumbleStats():
             mumble.mumble.control_socket.close()
 
 
-@route('/')
+@route('/mumblestats/')
 def get_index():
     params = {}
     params['server'] = server
     return template('index', params)
 
-@route('/static/<filename>')
+@route('/mumblestats/static/<filename>')
 def server_static(filename):
     return static_file(filename, root='static')
 
-@route('/stats')
+@route('/mumblestats/stats')
 def get_stats():
     global mumble_stats
     return mumble_stats.get_stats()
 
 
-@get('/wsstats', apply=[websocket])
+@get('/mumblestats/wsstats', apply=[websocket])
 def ws_stats(ws):
     global mumble_stats
     mumble_stats.wsstats_clients.append(ws)
@@ -162,6 +162,7 @@ def ws_stats(ws):
         if ws.receive() is None:
             break
     mumble_stats.wsstats_clients.remove(ws)
+
 
 def main():
     global mumble_stats
