@@ -7,7 +7,7 @@ User=mumble-util
 Restart=always
 Type=simple
 WorkingDirectory=/home/mumble-util/c3lingo-mumblestats
-ExecStart=/home/mumble-util/c3lingo-mumblestats/.venv/bin/python mumblestats.py
+ExecStart=/home/mumble-util/c3lingo-mumblestats/.venv/bin/python mumblestats.py 127.0.0.1
 
 [Install]
 WantedBy=multi-user.target
