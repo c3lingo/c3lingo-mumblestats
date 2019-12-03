@@ -8,41 +8,44 @@ import time
 import threading
 import wave
 
-from bottle import get, route, run, static_file, template
+from bottle import get, redirect, route, run, static_file, template
 from bottle.ext.websocket import GeventWebSocketServer
 from bottle.ext.websocket import websocket
 from pymumble_py3 import Mumble
 from pymumble_py3.callbacks import PYMUMBLE_CLBK_SOUNDRECEIVED
 from pymumble_py3.constants import PYMUMBLE_CONN_STATE_NOT_CONNECTED
 
-server = "localhost"
+once = True
 
 
 class MumbleChannelStats:
     def __init__(self, server, channel, nick='meter@{channel}',
-            peakinterval=.3, buffertime=1., debug=False):
-        self.channel = channel
+                 peakinterval=.3, buffertime=1., debug=False):
+        self.channelname = channel
         self.nick = nick.format(channel=channel)
-        self.mumble = Mumble(server, self.nick, password='somepassword', debug=debug)
-        self.mumble.set_application_string('Audio Meter for Channel {}'.format(channel))
-        self.mumble.callbacks.set_callback(PYMUMBLE_CLBK_SOUNDRECEIVED, self.sound_received_handler)
+        self.mumble = Mumble(server, self.nick, password='somepassword',
+                             debug=debug)
+        self.mumble.set_application_string(
+            'Audio Meter for Channel {}'.format(channel))
+        self.mumble.callbacks.set_callback(PYMUMBLE_CLBK_SOUNDRECEIVED,
+                                           self.sound_received_handler)
         self.mumble.set_receive_sound(1)
         self.mumble.start()
         self.mumble.is_ready()
 
-        if channel is not 'root':
-            self.channel = self.mumble.channels.find_by_name(channel)
+        if self.channelname is not 'root':
+            self.channel = self.mumble.channels.find_by_name(self.channelname)
             self.channel.move_in()
 
         self.buffer = bytearray()
         self.buffertime = buffertime
         self.rate = 48000
         self.bytespersample = 2
-        self.maxvalue = math.pow(2, self.bytespersample*8-1)-1
+        self.maxvalue = math.pow(2, self.bytespersample * 8 - 1) - 1
         self.buffersize = int(self.rate * self.buffertime * self.bytespersample)
         self.peak = -99
         self.rms = -99
-        self.rmsbytes = -int(.3*self.rate) * self.bytespersample
+        self.rmsbytes = -int(.3 * self.rate) * self.bytespersample
         self.samples = 0
         self.lastpeak = time.monotonic()
         self.peakinterval = peakinterval
@@ -74,7 +77,8 @@ class MumbleChannelStats:
         if now - self.last > 0.1:
             self.peak = self.rms = -90.0
         else:
-            self.rms = self.dBFS(audioop.rms(self.buffer[-self.rmsbytes:], self.bytespersample))
+            self.rms = self.dBFS(
+                audioop.rms(self.buffer[-self.rmsbytes:], self.bytespersample))
             peak = self.dBFS(audioop.max(self.buffer, self.bytespersample))
             self.peak = max(peak, self.peak)
         self.users = len(self.channel.get_users())
@@ -83,7 +87,10 @@ class MumbleChannelStats:
         return self.mumble.is_alive()
 
     def __str__(self):
-        return f'<MumbleChannelStats channel={self.channel} rms={self.rms} peak={self.peak} users={self.users}>'
+        return f'<MumbleChannelStats channel={self.channelname} rms={self.rms} peak={self.peak} users={self.users}>'
+
+    def __repr__(self):
+        return f'channel={self.channelname} rms={self.rms} peak={self.peak} users={self.users}'
 
 
 class MumbleStats():
@@ -92,7 +99,7 @@ class MumbleStats():
         self.stats = {}
         self.wsstats_clients = []
         self.running = True
-        root = MumbleChannelStats(server, 'root')
+        root = MumbleChannelStats(self.server, 'root')
         self.channels = [c['name'] for c in list(root.get_channels())[1:]]
         self.mumble_close(root)
 
@@ -110,7 +117,7 @@ class MumbleStats():
         global wsstats_clients
         for channel in self.channels:
             print('Connecting to {}...'.format(channel))
-            self.stats[channel] = MumbleChannelStats(server, channel)
+            self.stats[channel] = MumbleChannelStats(self.server, channel)
         while self.running:
             for channel in self.channels:
                 if not self.stats[channel].is_alive():
@@ -136,21 +143,51 @@ class MumbleStats():
             mumble.mumble.connected = PYMUMBLE_CONN_STATE_NOT_CONNECTED
             mumble.mumble.control_socket.close()
 
+    def __repr__(self):
+        return str({'server': self.server})
+
+
+@route('/')
+def to_index():
+    redirect('/mumblestats/')
+
 
 @route('/mumblestats/')
 def get_index():
     params = {}
-    params['server'] = server
+    params['server'] = mumble_stats.server
     return template('index', params)
+
 
 @route('/mumblestats/static/<filename>')
 def server_static(filename):
     return static_file(filename, root='static')
 
+
 @route('/mumblestats/stats')
 def get_stats():
     global mumble_stats
     return mumble_stats.get_stats()
+
+
+# @route('/mumblestats/objgraph')
+# def dump_objgraph():
+#     global mumble_stats
+#     import objgraph
+#     import random
+#     objgraph.show_growth(limit=10)
+#     # objgraph.show_refs(mumble_stats, filename='mumble_stats.png')
+#     q = random.choice(objgraph.by_type('SoundQueue'))
+#     print(f'len(queue)={len(q.queue)}')
+#     objgraph.show_chain(
+#         objgraph.find_backref_chain(q, objgraph.is_proper_module),
+#         filename='SoundQueue.png')
+#     # objgraph.show_chain(
+#     #     objgraph.find_backref_chain(
+#     #         random.choice(objgraph.by_type('SoundChunk')),
+#     #         objgraph.is_proper_module),
+#     #     filename='SoundChunk.png')
+#     return 'done'
 
 
 @get('/mumblestats/wsstats', apply=[websocket])
@@ -166,10 +203,11 @@ def ws_stats(ws):
 
 def main():
     global mumble_stats
-    mumble_stats = MumbleStats(server)
+    mumble_stats = MumbleStats(sys.argv[1])
     mumble_stats.thread()
     try:
-        run(host='localhost', port=8080, server=GeventWebSocketServer, debug=True)
+        run(host='localhost', port=8080, server=GeventWebSocketServer,
+            debug=True)
     except KeyboardInterrupt:
         mumble_stats.stop()
         print('stopping...')
