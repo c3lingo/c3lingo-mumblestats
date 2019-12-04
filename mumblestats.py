@@ -3,23 +3,24 @@
 import audioop
 import json
 import math
+import re
 import sys
 import time
 import threading
 import wave
 
-from bottle import get, redirect, route, run, static_file, template
+from bottle import get, redirect, response, route, run, static_file, template
 from bottle.ext.websocket import GeventWebSocketServer
 from bottle.ext.websocket import websocket
 from pymumble_py3 import Mumble
 from pymumble_py3.callbacks import PYMUMBLE_CLBK_SOUNDRECEIVED
 from pymumble_py3.constants import PYMUMBLE_CONN_STATE_NOT_CONNECTED
 
-once = True
+from prometheus_client import generate_latest, REGISTRY, Gauge, Histogram
 
 
 class MumbleChannelStats:
-    def __init__(self, server, channel, nick='meter@{channel}',
+    def __init__(self, server, channel, nick='meter2@{channel}',
                  peakinterval=.3, buffertime=1., debug=False):
         self.channelname = channel
         self.nick = nick.format(channel=channel)
@@ -98,6 +99,7 @@ class MumbleStats():
         self.server = server
         self.stats = {}
         self.wsstats_clients = []
+        self.metrics = {}
         self.running = True
         root = MumbleChannelStats(self.server, 'root')
         self.channels = [c['name'] for c in list(root.get_channels())[1:]]
@@ -113,6 +115,27 @@ class MumbleStats():
             r[mumble_channel_stats.channel['name']] = s
         return r
 
+    def get_prometheus_metric(self, n, type, doc, **kwargs):
+        if n not in self.metrics:
+            self.metrics[n] = type(n, doc, **kwargs)
+        return self.metrics[n]
+
+    def update_prometheus_metrics(self, stats):
+        buckets = (-36, -30, -24, -18, -12, -6, -3, 0, 3)
+        for (name, v) in stats.items():
+            m = self.get_prometheus_metric(
+                'mumble_level', Histogram,
+                'audio level in dBFS, either root-mean-square or peak',
+                labelnames=['channel', 'level'],
+                unit='dBFS', buckets=buckets)
+            m.labels(channel=name, level='rms').observe(v['rms'])
+            m.labels(channel=name, level='peak').observe(v['peak'])
+            m = self.get_prometheus_metric(
+                'mumble_users', Gauge,
+                'number of users connected',
+                labelnames=['channel'])
+            m.labels(channel=name).set(v['users'])
+
     def collect_stats(self):
         global wsstats_clients
         for channel in self.channels:
@@ -124,8 +147,11 @@ class MumbleStats():
                     print('{} is not alive anymore'.format(channel))
                     return
                 self.stats[channel].update_stats()
+            stats = self.get_stats()
+            self.update_prometheus_metrics(stats)
+            wsjson = json.dumps(stats)
             for ws in self.wsstats_clients:
-                ws.send(json.dumps(self.get_stats()))
+                ws.send(wsjson)
             time.sleep(.05)
         for channel in self.channels:
             self.mumble_close(self.stats[channel])
@@ -170,6 +196,23 @@ def get_stats():
     return mumble_stats.get_stats()
 
 
+@get('/mumblestats/wsstats', apply=[websocket])
+def ws_stats(ws):
+    global mumble_stats
+    mumble_stats.wsstats_clients.append(ws)
+    ws.send(json.dumps(mumble_stats.get_stats()))
+    while True:
+        if ws.receive() is None:
+            break
+    mumble_stats.wsstats_clients.remove(ws)
+
+
+@route('/mumblestats/metrics')
+def metrics():
+    response.content_type = 'text/plain'
+    return generate_latest(REGISTRY)
+
+
 # @route('/mumblestats/objgraph')
 # def dump_objgraph():
 #     global mumble_stats
@@ -188,17 +231,6 @@ def get_stats():
 #     #         objgraph.is_proper_module),
 #     #     filename='SoundChunk.png')
 #     return 'done'
-
-
-@get('/mumblestats/wsstats', apply=[websocket])
-def ws_stats(ws):
-    global mumble_stats
-    mumble_stats.wsstats_clients.append(ws)
-    ws.send(json.dumps(mumble_stats.get_stats()))
-    while True:
-        if ws.receive() is None:
-            break
-    mumble_stats.wsstats_clients.remove(ws)
 
 
 def main():

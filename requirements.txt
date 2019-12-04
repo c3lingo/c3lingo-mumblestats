@@ -1,6 +1,7 @@
 bottle
 bottle-websocket
 opuslib
+prometheus-client
 protobuf
 pyaudio
 # optional for transitive bottle-websocket -> gevent-websocket
