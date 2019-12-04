@@ -239,7 +239,7 @@ def main():
     mumble_stats.thread()
     try:
         run(host='localhost', port=8080, server=GeventWebSocketServer,
-            debug=True)
+            debug=False)
     except KeyboardInterrupt:
         mumble_stats.stop()
         print('stopping...')
