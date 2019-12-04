@@ -152,7 +152,7 @@ class MumbleStats():
             wsjson = json.dumps(stats)
             for ws in self.wsstats_clients:
                 ws.send(wsjson)
-            time.sleep(.05)
+            time.sleep(.1)
         for channel in self.channels:
             self.mumble_close(self.stats[channel])
 
