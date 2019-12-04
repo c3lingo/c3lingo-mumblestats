@@ -20,7 +20,7 @@ from prometheus_client import generate_latest, REGISTRY, Gauge, Histogram
 
 
 class MumbleChannelStats:
-    def __init__(self, server, channel, nick='meter2@{channel}',
+    def __init__(self, server, channel, nick='meter@{channel}',
                  peakinterval=.3, buffertime=1., debug=False):
         self.channelname = channel
         self.nick = nick.format(channel=channel)
