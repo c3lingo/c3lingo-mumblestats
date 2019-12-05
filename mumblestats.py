@@ -104,6 +104,15 @@ class MumbleStats():
         root = MumbleChannelStats(self.server, 'root')
         self.channels = [c['name'] for c in list(root.get_channels())[1:]]
         self.mumble_close(root)
+        buckets = (-36, -30, -24, -18, -12, -6, -3, 0, 3)
+        self.metric_level = Histogram(
+            'mumble_level',
+            'audio level in dBFS, either root-mean-square or peak',
+            labelnames=['channel', 'level'],
+            unit='dBFS', buckets=buckets)
+        self.metric_users = Gauge(
+                'mumble_users', 'number of users connected',
+                labelnames=['channel'])
 
     def get_stats(self):
         r = {}
@@ -115,26 +124,11 @@ class MumbleStats():
             r[mumble_channel_stats.channel['name']] = s
         return r
 
-    def get_prometheus_metric(self, n, type, doc, **kwargs):
-        if n not in self.metrics:
-            self.metrics[n] = type(n, doc, **kwargs)
-        return self.metrics[n]
-
     def update_prometheus_metrics(self, stats):
-        buckets = (-36, -30, -24, -18, -12, -6, -3, 0, 3)
         for (name, v) in stats.items():
-            m = self.get_prometheus_metric(
-                'mumble_level', Histogram,
-                'audio level in dBFS, either root-mean-square or peak',
-                labelnames=['channel', 'level'],
-                unit='dBFS', buckets=buckets)
-            m.labels(channel=name, level='rms').observe(v['rms'])
-            m.labels(channel=name, level='peak').observe(v['peak'])
-            m = self.get_prometheus_metric(
-                'mumble_users', Gauge,
-                'number of users connected',
-                labelnames=['channel'])
-            m.labels(channel=name).set(v['users'])
+            self.metric_level.labels(channel=name, level='rms').observe(v['rms'])
+            self.metric_level.labels(channel=name, level='peak').observe(v['peak'])
+            self.metric_users.labels(channel=name).set(v['users'])
 
     def collect_stats(self):
         global wsstats_clients
