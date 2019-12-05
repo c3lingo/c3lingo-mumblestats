@@ -69,8 +69,8 @@ document.addEventListener("DOMContentLoaded", function(event) {
       html += createStatsDisplayGradation(i);
     }
     html += '<text x="1" y="3.5" font-family="Arial, Helvetica, sans-serif" fill="#ccc" font-size="3" text-anchor="left">dBFS</text>';
-    html += '<rect id="channelStatsMeter-' + channel + '" x="6" y="6" width="88" height="3" fill="url(#meter_display)"/>';
-    html += '<rect id="channelStatsPeak-' + channel + '" x="93.5" y="5.5" width="1" height="4" fill="#f00" stroke="#000" stroke-width=".2"/>';
+    html += '<rect class="channelStatsMeterBar" id="channelStatsMeter-' + channel + '" x="6" y="6" width="88" height="3" fill="url(#meter_display)"/>';
+    html += '<rect class="channelStatsMeterNeedle" id="channelStatsPeak-' + channel + '" x="93.5" y="5.5" width="1" height="4" fill="#f00" stroke="#000" stroke-width=".2"/>';
 
     html += '</svg></div>';
 

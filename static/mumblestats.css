@@ -39,6 +39,14 @@ h1 {
   width: 20em;
 }
 
+.channelStatsMeterBar {
+  transition: width .1s;
+}
+
+.channelStatsMeterNeedle {
+  transition: x .1s;
+}
+
 #notconnected {
   position: fixed;
   display: block;
