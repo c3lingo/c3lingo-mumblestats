@@ -3,11 +3,11 @@
 import audioop
 import json
 import math
-import re
+import random
+import string
 import sys
 import time
 import threading
-import wave
 
 from bottle import get, redirect, response, route, run, static_file, template
 from bottle.ext.websocket import GeventWebSocketServer
@@ -20,10 +20,11 @@ from prometheus_client import generate_latest, REGISTRY, Gauge, Histogram
 
 
 class MumbleChannelStats:
-    def __init__(self, server, channel, nick='meter@{channel}',
+    def __init__(self, server, channel, nick='meter-{r}@{channel}',
                  peakinterval=.3, buffertime=1., debug=False):
+        r = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
         self.channelname = channel
-        self.nick = nick.format(channel=channel)
+        self.nick = nick.format(r=r, channel=channel)
         self.mumble = Mumble(server, self.nick, password='somepassword',
                              debug=debug)
         self.mumble.set_application_string(
@@ -104,12 +105,16 @@ class MumbleStats():
         root = MumbleChannelStats(self.server, 'root')
         self.channels = [c['name'] for c in list(root.get_channels())[1:]]
         self.mumble_close(root)
-        buckets = (-36, -30, -24, -18, -12, -6, -3, 0, 3)
-        self.metric_level = Histogram(
-            'mumble_level',
-            'audio level in dBFS, either root-mean-square or peak',
-            labelnames=['channel', 'level'],
-            unit='dBFS', buckets=buckets)
+        # buckets = (-36, -30, -24, -18, -12, -6, -3, 0, 3)
+        # self.metric_level = Histogram(
+        #     'mumble_level',
+        #     'audio level in dBFS, either root-mean-square or peak',
+        #     labelnames=['channel', 'level'],
+        #     unit='dBFS', buckets=buckets)
+
+        self.metric_level = Gauge(
+                'metric_level', 'audio level in dBFS, either root-mean-square or peak',
+                labelnames=['channel', 'level'])
         self.metric_users = Gauge(
                 'mumble_users', 'number of users connected',
                 labelnames=['channel'])
@@ -126,8 +131,8 @@ class MumbleStats():
 
     def update_prometheus_metrics(self, stats):
         for (name, v) in stats.items():
-            self.metric_level.labels(channel=name, level='rms').observe(v['rms'])
-            self.metric_level.labels(channel=name, level='peak').observe(v['peak'])
+            self.metric_level.labels(channel=name, level='rms').set(v['rms'])
+            self.metric_level.labels(channel=name, level='peak').set(v['peak'])
             self.metric_users.labels(channel=name).set(v['users'])
 
     def collect_stats(self):
