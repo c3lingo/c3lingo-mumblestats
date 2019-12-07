@@ -113,11 +113,12 @@ class MumbleStats():
         #     unit='dBFS', buckets=buckets)
 
         self.metric_level = Gauge(
-                'metric_level', 'audio level in dBFS, either root-mean-square or peak',
-                labelnames=['channel', 'level'])
+            'mumble_level',
+            'audio level in dBFS, either root-mean-square or peak',
+            unit='dBFS', labelnames=['channel', 'level'])
         self.metric_users = Gauge(
-                'mumble_users', 'number of users connected',
-                labelnames=['channel'])
+            'mumble_users', 'number of users connected',
+            labelnames=['channel'])
 
     def get_stats(self):
         r = {}
