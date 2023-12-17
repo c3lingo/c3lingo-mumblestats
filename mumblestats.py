@@ -4,6 +4,7 @@ import audioop
 import json
 import math
 import random
+import re
 import string
 import sys
 import time
@@ -35,7 +36,7 @@ class MumbleChannelStats:
         self.mumble.start()
         self.mumble.is_ready()
 
-        if self.channelname is not 'root':
+        if self.channelname != 'root':
             self.channel = self.mumble.channels.find_by_name(self.channelname)
             self.channel.move_in()
 
@@ -102,8 +103,9 @@ class MumbleStats():
         self.wsstats_clients = []
         self.metrics = {}
         self.running = True
+        channel_re = re.compile('Saal.*-(original|translation-1|translation-2)')
         root = MumbleChannelStats(self.server, 'root')
-        self.channels = [c['name'] for c in list(root.get_channels())[1:]]
+        self.channels = [c['name'] for c in list(root.get_channels())[1:] if channel_re.match(c['name'])]
         self.mumble_close(root)
         # buckets = (-36, -30, -24, -18, -12, -6, -3, 0, 3)
         # self.metric_level = Histogram(
@@ -238,7 +240,7 @@ def main():
     mumble_stats = MumbleStats(sys.argv[1])
     mumble_stats.thread()
     try:
-        run(host='localhost', port=8080, server=GeventWebSocketServer,
+        run(host='0.0.0.0', port=8080, server=GeventWebSocketServer,
             debug=False)
     except KeyboardInterrupt:
         mumble_stats.stop()
