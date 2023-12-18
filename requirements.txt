@@ -6,10 +6,9 @@ gevent-websocket==0.10.1
 greenlet==3.0.2 ; python_version >= '3.11' and platform_python_implementation == 'CPython'
 opuslib==3.0.1
 prometheus-client==0.19.0
-protobuf==3.12.2
+protobuf==3.20.3 ; python_version >= '3.7'
 pyaudio==0.2.14
-pymumble==1.6.1
+-e git+https://github.com/azlux/pymumble.git@8be2d18ac7324669e1fcd9b37083560fadb9e9e7#egg=pymumble
 setuptools==69.0.2 ; python_version >= '3.8'
-six==1.16.0 ; python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'
 zope.event==5.0 ; python_version >= '3.7'
 zope.interface==6.1 ; python_version >= '3.7'

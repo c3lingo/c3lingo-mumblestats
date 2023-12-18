@@ -6,9 +6,9 @@ name = "pypi"
 [packages]
 bottle = "*"
 bottle-websocket = "*"
-pymumble = "*"
 prometheus-client = "*"
 pyaudio = "*"
+pymumble = {editable = true,git = "https://github.com/azlux/pymumble.git"}
 
 [dev-packages]
 
