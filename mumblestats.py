@@ -146,14 +146,19 @@ class MumbleStats():
         while self.running:
             for channel in self.channels:
                 if not self.stats[channel].is_alive():
-                    print('{} is not alive anymore'.format(channel))
+                    #print('{} is not alive anymore'.format(channel))
                     return
                 self.stats[channel].update_stats()
             stats = self.get_stats()
             self.update_prometheus_metrics(stats)
             wsjson = json.dumps(stats)
             for ws in self.wsstats_clients:
-                ws.send(wsjson)
+                def send():
+                    try:
+                        ws.send(wsjson)
+                    except Exception:
+                        self.wsstats_clients.remove(ws)
+                t = threading.Thread(target=send, daemon=True).start()
             time.sleep(.1)
         for channel in self.channels:
             self.mumble_close(self.stats[channel])
